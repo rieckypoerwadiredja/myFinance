@@ -29,13 +29,13 @@ export default function SignInPage() {
           >
             Continue with Google
           </button>
-          <button
+          {/* <button
             type="button"
             onClick={() => signIn("github", { callbackUrl: "/" })}
             className="flex w-full font-semibold justify-center rounded-md bg-surface-container-low px-4 py-2 text-sm text-on-surface shadow-sm hover:bg-surface-high focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
           >
             Continue with GitHub
-          </button>
+          </button> */}
         </div>
       </div>
     </div>
