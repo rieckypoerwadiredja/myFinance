@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import TopBar from "./components/fragments/TopBar";
+import Sidebar from "./components/fragments/Sidebar";
+import {
+  LayoutDashboard,
+  Receipt,
+  CloudUpload,
+  UserCircle,
+  Plus,
+} from "lucide-react";
+import PageTransition from "./components/elements/PageTransition";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -23,11 +23,51 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html>
+      <body>
+        <div className="min-h-screen bg-background">
+          <TopBar />
+          <Sidebar />
+
+          <main className="md:ml-64 pt-24 px-6 md:px-12 pb-24 md:pb-12">
+            <PageTransition>{children}</PageTransition>
+          </main>
+
+          {/* Mobile Navigation */}
+          <nav className="md:hidden fixed bottom-0 left-0 w-full glass-nav px-8 py-4 flex justify-between items-center z-50 border-t border-outline-variant/10">
+            <Link
+              href="/"
+              className={`flex flex-col items-center gap-1 text-on-surface-variant opacity-70`}
+            >
+              <LayoutDashboard size={20} />
+              <span className="text-[10px] font-bold">Dash</span>
+            </Link>
+            <Link
+              href="/transactions"
+              className={`flex flex-col items-center gap-1 text-on-surface-variant opacity-70`}
+            >
+              <Receipt size={20} />
+              <span className="text-[10px] font-bold">Logs</span>
+            </Link>
+            <div className="relative -top-8">
+              <button className="bg-primary w-14 h-14 rounded-full flex items-center justify-center shadow-xl text-white">
+                <Plus size={28} />
+              </button>
+            </div>
+            <Link
+              href="/upload"
+              className={`flex flex-col items-center gap-1 text-on-surface-variant opacity-70`}
+            >
+              <CloudUpload size={20} />
+              <span className="text-[10px] font-bold">Import</span>
+            </Link>
+            <button className="flex flex-col items-center gap-1 text-on-surface-variant opacity-70">
+              <UserCircle size={20} />
+              <span className="text-[10px] font-bold">Me</span>
+            </button>
+          </nav>
+        </div>
+      </body>
     </html>
   );
 }

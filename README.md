@@ -1,36 +1,235 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mutasi Rekening — Financial Ledger (Next.js)
 
-## Getting Started
+A small financial ledger dashboard built with Next.js App Router. It reads and writes transactions directly to a Google Sheet (as the single source of truth), then renders:
 
-First, run the development server:
+- Dashboard: total expenses, spending trends (monthly/weekly), category breakdown, and recent activity.
+- Transactions: server-backed pagination (100 rows/page), filtering, inline edit, and delete.
+- Upload: multi-row create (append) to the sheet.
+
+## What You Get
+
+### Features
+
+- Google Sheets as a database (CRUD via Google Sheets API)
+- API route: `/api/transaction` (GET with filters + pagination, POST create, PATCH update, DELETE remove)
+- Date parsing for `dd/mm/yyyy` and `yyyy-mm-dd` (to avoid month shifting bugs)
+- Indonesian Rupiah formatting
+- Category palette:
+  - Donasi (light blue)
+  - Date (light pink)
+  - Main (light green)
+  - Kerja (gray)
+  - Lainnya (dark)
+
+### Architecture (High Level)
+
+```
+app/
+  api/transaction/route.ts       # Google Sheets CRUD + filters + pagination + summary
+  components/
+    elements/                    # small reusable UI building blocks
+    fragments/                   # page sections (tables, charts, headers)
+    layouts/                     # page composition (Dashboard/Transactions/Upload)
+  lib/                           # shared helpers (client API, rupiah, categories)
+  transactions/page.tsx          # page entry
+  upload/page.tsx                # page entry
+  page.tsx                       # dashboard entry
+```
+
+## Getting Started (Local)
+
+### 1) Install
+
+```bash
+npm install
+```
+
+### 2) Environment Variables
+
+Create a `.env` file at the project root (do not commit it). Required variables:
+
+| Variable              | Required | Description                                                                       |
+| --------------------- | -------: | --------------------------------------------------------------------------------- |
+| `GOOGLE_CLIENT_EMAIL` |      Yes | Service Account email (e.g. `...@...iam.gserviceaccount.com`)                     |
+| `GOOGLE_PRIVATE_KEY`  |      Yes | Service Account private key (multi-line key, stored with `\n` in `.env`)          |
+| `GOOGLE_SHEET_ID`     |      Yes | Spreadsheet ID from the Google Sheets URL                                         |
+| `GOOGLE_SHEET_TITLE`  |      Yes | Sheet/tab name (example: `2026`)                                                  |
+| `GOOGLE_SHEET_RANGE`  |       No | Defaults to `${GOOGLE_SHEET_TITLE}!A:E` (Id, Tanggal, Kiteria, Pengeluaran, Note) |
+
+Example `.env` (values are placeholders):
+
+```env
+GOOGLE_CLIENT_EMAIL="your-service-account@your-project.iam.gserviceaccount.com"
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_SHEET_ID="your_sheet_id_here"
+GOOGLE_SHEET_TITLE="2026"
+GOOGLE_SHEET_RANGE="2026!A:E"
+```
+
+### 3) Run
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Google Cloud Console Setup (Service Account)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project uses a Service Account (server-to-server) to access Google Sheets.
 
-## Learn More
+### A) Create a Google Cloud Project
 
-To learn more about Next.js, take a look at the following resources:
+- Google Cloud Console: https://console.cloud.google.com/
+- Create a new project (or pick an existing one)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### B) Enable Google Sheets API
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- APIs & Services → Library
+- Enable: Google Sheets API
 
-## Deploy on Vercel
+### C) Create a Service Account + Key
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- IAM & Admin → Service Accounts
+- Create service account
+- Grant minimum permission: it can be left without IAM roles for Sheets access; the sheet itself is shared with this account.
+- Create a key:
+  - Key type: JSON
+  - Download the JSON and extract:
+    - `client_email` → `GOOGLE_CLIENT_EMAIL`
+    - `private_key` → `GOOGLE_PRIVATE_KEY`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### D) Share the Sheet to the Service Account
+
+Open your Google Sheet → Share → add `GOOGLE_CLIENT_EMAIL` as a viewer/editor:
+
+- Viewer: read-only (GET filters)
+- Editor: required for create/update/delete
+
+## How to Use (App)
+
+### Dashboard
+
+- Select a year and view (Monthly/Weekly).
+- Monthly view supports a flexible month range (Start/End).
+- Weekly view supports selecting a month + year.
+- Category breakdown and recent activity follow the same filter context.
+
+### Transactions Page
+
+- Filters:
+  - Category (`Donasi`, `Date`, `Main`, `Kerja`, `Lainnya`)
+  - Date range (`from`, `to`)
+- Pagination:
+  - 100 rows per page (server-backed)
+- Inline edit:
+  - Date uses a `date` input
+  - Category uses a dropdown
+  - Amount uses a numeric input
+
+### Upload Page
+
+- Add multiple rows at once
+- Date uses `date` input
+- Category offers suggestions but can be typed manually
+- IDs are generated by the API
+
+## API Reference
+
+Base URL: `/api/transaction`
+
+### GET /api/transaction
+
+Query params:
+
+| Param      | Type   | Example      | Notes          |
+| ---------- | ------ | ------------ | -------------- |
+| `page`     | number | `1`          | default: `1`   |
+| `limit`    | number | `100`        | default: `100` |
+| `category` | string | `Main`       | optional       |
+| `from`     | string | `2026-01-01` | optional       |
+| `to`       | string | `2026-01-31` | optional       |
+| `search`   | string | `indomaret`  | optional       |
+
+Response shape (simplified):
+
+```json
+{
+  "message": "Berhasil mengambil data transaksi dari Google Sheets.",
+  "totalCount": 256,
+  "page": 1,
+  "limit": 100,
+  "count": 100,
+  "categories": ["Donasi", "Date", "Main", "Kerja", "Lainnya"],
+  "years": [2025, 2026],
+  "summary": {
+    "totalVolume": 6586400,
+    "percentChange": -12.5,
+    "trend": "down",
+    "validatedEntries": 256
+  },
+  "data": [
+    {
+      "id": "TX-...",
+      "tanggal": "12/04/2026",
+      "kriteria": "Main",
+      "pengeluaran": "Rp6.586.400",
+      "note": "example",
+      "pengeluaranNumber": 6586400
+    }
+  ]
+}
+```
+
+### POST /api/transaction
+
+Append rows to the bottom of the sheet. IDs are generated by the API.
+
+```json
+{
+  "items": [
+    {
+      "tanggal": "2026-04-12",
+      "kriteria": "Main",
+      "pengeluaran": "25000",
+      "note": "Lunch"
+    }
+  ]
+}
+```
+
+### PATCH /api/transaction
+
+Update a row by `id` (id is immutable).
+
+```json
+{
+  "id": "TX-...",
+  "tanggal": "2026-04-12",
+  "kriteria": "Donasi",
+  "pengeluaran": "50000",
+  "note": "Updated note"
+}
+```
+
+### DELETE /api/transaction?id=TX-...
+
+Deletes the matching row (never deletes the header row).
+
+## Dev Notes
+
+### Date Formats
+
+Supported input formats:
+
+- `yyyy-mm-dd` (recommended for forms)
+- `dd/mm/yyyy` and `dd-mm-yyyy` (often used in spreadsheets)
+
+### Security
+
+Never commit secrets:
+
+- `.env`
+- service account keys
+
+If you accidentally committed credentials, rotate the key immediately in Google Cloud Console.
