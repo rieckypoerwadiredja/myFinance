@@ -49,7 +49,10 @@ function parseAuthorizedEmails() {
 }
 
 async function requireAuthorizedEmail(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
+  });
   const email =
     typeof token?.email === "string" ? token.email.toLowerCase() : "";
   if (!email) return null;

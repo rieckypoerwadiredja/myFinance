@@ -10,20 +10,37 @@ function parseAuthorizedEmails() {
 }
 
 export const authOptions: NextAuthOptions = {
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
   pages: {
     signIn: "/auth/signin",
   },
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-    }),
-    // GitHubProvider({
-    //   clientId: process.env.GITHUB_CLIENT_ID ?? "",
-    //   clientSecret: process.env.GITHUB_CLIENT_SECRET ?? "",
-    // }),
-  ],
+  providers: (() => {
+    const providers = [];
+
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    if (googleClientId && googleClientSecret) {
+      providers.push(
+        GoogleProvider({
+          clientId: googleClientId,
+          clientSecret: googleClientSecret,
+        }),
+      );
+    }
+
+    const githubClientId = process.env.GITHUB_CLIENT_ID;
+    const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+    if (githubClientId && githubClientSecret) {
+      providers.push(
+        GitHubProvider({
+          clientId: githubClientId,
+          clientSecret: githubClientSecret,
+        }),
+      );
+    }
+
+    return providers;
+  })(),
   callbacks: {
     async signIn({ user }) {
       const email = String(user.email ?? "")

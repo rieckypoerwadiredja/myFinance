@@ -6,7 +6,7 @@ export default withAuth(
     return NextResponse.next();
   },
   {
-    secret: process.env.AUTH_SECRET,
+    secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
   },
 );
 
