@@ -1,4 +1,4 @@
-# Mutasi Rekening — Financial Ledger (Next.js)
+# My Finanace — Financial Ledger (Next.js)
 
 A small financial ledger dashboard built with Next.js App Router. It reads and writes transactions directly to a Google Sheet (as the single source of truth), then renders:
 
