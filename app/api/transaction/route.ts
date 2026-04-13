@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { google } from "googleapis";
 import { randomUUID } from "node:crypto";
+import { getToken } from "next-auth/jwt";
 
 /**
  * Transaction API (Google Sheets as the single source of truth)
@@ -24,6 +26,9 @@ import { randomUUID } from "node:crypto";
  * - GOOGLE_PRIVATE_KEY (stored with \n escapes inside .env)
  * - GOOGLE_SHEET_ID
  * - GOOGLE_SHEET_TITLE (tab name, e.g. 2026)
+ *
+ * This API is protected by NextAuth. Only authenticated and authorized users
+ * (whose emails are listed in AUTHORIZED_EMAILS in .env) can access these routes.
  */
 type TransactionRow = {
   id: string;
@@ -35,6 +40,23 @@ type TransactionRow = {
 };
 
 export const runtime = "nodejs";
+
+function parseAuthorizedEmails() {
+  return (process.env.AUTHORIZED_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+async function requireAuthorizedEmail(req: NextRequest) {
+  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  const email =
+    typeof token?.email === "string" ? token.email.toLowerCase() : "";
+  if (!email) return null;
+  const allowed = parseAuthorizedEmails();
+  if (!allowed.includes(email)) return null;
+  return email;
+}
 
 function normalizeHeader(value: string) {
   return value.trim().toLowerCase();
@@ -178,13 +200,18 @@ function mapRowsToTransactions(values: string[][]) {
 }
 
 export async function GET(req: Request) {
+  const email = await requireAuthorizedEmail(req as NextRequest);
+  if (!email) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   const sheetTitle = process.env.GOOGLE_SHEET_TITLE ?? "Sheet1";
   const range = process.env.GOOGLE_SHEET_RANGE ?? `${sheetTitle}!A:E`;
 
   if (!spreadsheetId) {
     return NextResponse.json(
-      { message: "GOOGLE_SHEET_ID belum di-set.", data: [] },
+      { message: "GOOGLE_SHEET_ID belum di-set." },
       { status: 500 },
     );
   }
@@ -195,7 +222,6 @@ export async function GET(req: Request) {
       {
         message:
           "Konfigurasi service account belum lengkap. Pastikan GOOGLE_CLIENT_EMAIL dan GOOGLE_PRIVATE_KEY terisi.",
-        data: [],
       },
       { status: 500 },
     );
@@ -210,7 +236,7 @@ export async function GET(req: Request) {
     values = (resp.data.values as string[][]) ?? [];
   } catch {
     return NextResponse.json(
-      { message: "Gagal fetch data dari Google Sheets.", data: [] },
+      { message: "Gagal fetch data dari Google Sheets." },
       { status: 502 },
     );
   }
@@ -371,6 +397,11 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const email = await requireAuthorizedEmail(req as NextRequest);
+  if (!email) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   const sheetTitle = process.env.GOOGLE_SHEET_TITLE ?? "Sheet1";
   const range = process.env.GOOGLE_SHEET_RANGE ?? `${sheetTitle}!A:E`;
@@ -498,6 +529,7 @@ export async function POST(req: Request) {
   }
 
   const existingIds = new Set(mapped.data.map((r) => r.id));
+
   const created: TransactionRow[] = [];
   const rowsToAppend: string[][] = [];
 
@@ -578,6 +610,11 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  const email = await requireAuthorizedEmail(req as NextRequest);
+  if (!email) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   const sheetTitle = process.env.GOOGLE_SHEET_TITLE ?? "Sheet1";
   const range = process.env.GOOGLE_SHEET_RANGE ?? `${sheetTitle}!A:E`;
@@ -600,17 +637,24 @@ export async function PATCH(req: Request) {
     );
   }
 
-  let payload: Partial<TransactionRow> & { id?: string } = {};
+  let payload: unknown = null;
   try {
-    payload = (await req.json()) as Partial<TransactionRow> & { id?: string };
+    payload = await req.json();
   } catch {
-    payload = {};
+    payload = null;
   }
 
-  const targetId = (payload.id ?? "").trim();
-  if (!targetId) {
+  const { id, tanggal, kriteria, pengeluaran, note } = payload as {
+    id?: string;
+    tanggal?: string;
+    kriteria?: string;
+    pengeluaran?: string;
+    note?: string;
+  };
+
+  if (!id) {
     return NextResponse.json(
-      { message: "Field id wajib diisi untuk update." },
+      { message: "ID transaksi wajib disertakan untuk update." },
       { status: 400 },
     );
   }
@@ -631,18 +675,7 @@ export async function PATCH(req: Request) {
 
   if (!values.length) {
     return NextResponse.json(
-      { message: "Sheet kosong / data tidak ditemukan." },
-      { status: 404 },
-    );
-  }
-
-  const mapped = mapRowsToTransactions(values);
-  if (!mapped.ok) {
-    return NextResponse.json(
-      {
-        message: mapped.error.message,
-        detectedHeaders: mapped.error.detectedHeaders,
-      },
+      { message: "Header sheet tidak ditemukan." },
       { status: 422 },
     );
   }
@@ -661,62 +694,51 @@ export async function PATCH(req: Request) {
   const idxPengeluaran = findColumnIndex(headerRow, ["pengeluaran", "amount"]);
   const idxNote = findColumnIndex(headerRow, ["note", "catatan"]);
 
-  const rowIndex = values.findIndex(
-    (row, i) => i !== 0 && String(row[idxId] ?? "").trim() === targetId,
-  );
-  if (rowIndex === -1) {
+  const targetRowIndex = values.findIndex((row) => row[idxId] === id);
+
+  if (targetRowIndex === -1) {
     return NextResponse.json(
-      { message: `Data dengan id ${targetId} tidak ditemukan.` },
+      { message: `Transaksi dengan ID ${id} tidak ditemukan.` },
       { status: 404 },
     );
   }
 
-  const existing = values[rowIndex] ?? [];
-  const updatedRow = [...existing];
-
-  updatedRow[idxId] = targetId;
-  if (payload.tanggal !== undefined) updatedRow[idxTanggal] = payload.tanggal;
-  if (payload.kriteria !== undefined)
-    updatedRow[idxKriteria] = payload.kriteria;
-  if (payload.pengeluaran !== undefined)
-    updatedRow[idxPengeluaran] = payload.pengeluaran;
-  if (payload.note !== undefined) updatedRow[idxNote] = payload.note;
-
-  const a1Row = rowIndex + 1;
-  const updateRange = `${sheetTitle}!A${a1Row}:E${a1Row}`;
+  const updatedRow = [...values[targetRowIndex]];
+  if (tanggal !== undefined) updatedRow[idxTanggal] = tanggal;
+  if (kriteria !== undefined) updatedRow[idxKriteria] = kriteria;
+  if (pengeluaran !== undefined) updatedRow[idxPengeluaran] = pengeluaran;
+  if (note !== undefined) updatedRow[idxNote] = note;
 
   try {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: updateRange,
-      valueInputOption: "RAW",
+      range: `${sheetTitle}!A${targetRowIndex + 1}`,
+      valueInputOption: "USER_ENTERED",
       requestBody: {
-        values: [updatedRow.slice(0, 5)],
+        values: [updatedRow],
       },
     });
-  } catch {
     return NextResponse.json(
-      { message: "Gagal update data ke Google Sheets." },
-      { status: 502 },
+      { message: `Transaksi dengan ID ${id} berhasil diupdate.` },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error("Error updating sheet:", error);
+    return NextResponse.json(
+      { message: "Gagal mengupdate transaksi di Google Sheets." },
+      { status: 500 },
     );
   }
-
-  const updatedMapped = mapRowsToTransactions([
-    values[0],
-    updatedRow.slice(0, 5),
-  ]);
-  const updated = updatedMapped.ok ? updatedMapped.data[0] : null;
-
-  return NextResponse.json(
-    { message: "Berhasil update transaksi.", data: updated },
-    { status: 200 },
-  );
 }
 
 export async function DELETE(req: Request) {
+  const email = await requireAuthorizedEmail(req as NextRequest);
+  if (!email) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   const sheetTitle = process.env.GOOGLE_SHEET_TITLE ?? "Sheet1";
-  const range = process.env.GOOGLE_SHEET_RANGE ?? `${sheetTitle}!A:E`;
 
   if (!spreadsheetId) {
     return NextResponse.json(
@@ -736,14 +758,12 @@ export async function DELETE(req: Request) {
     );
   }
 
-  const url = new URL(req.url);
-  const targetId = (url.searchParams.get("id") ?? "").trim();
-  if (!targetId) {
+  const requestUrl = new URL(req.url);
+  const id = requestUrl.searchParams.get("id");
+
+  if (!id) {
     return NextResponse.json(
-      {
-        message:
-          "Query param id wajib diisi untuk delete. Contoh: /api/transaction?id=123",
-      },
+      { message: "ID transaksi wajib disertakan untuk delete." },
       { status: 400 },
     );
   }
@@ -752,7 +772,7 @@ export async function DELETE(req: Request) {
   try {
     const resp = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range,
+      range: `${sheetTitle}!A:A`, // Only fetch ID column for efficiency
     });
     values = (resp.data.values as string[][]) ?? [];
   } catch {
@@ -769,55 +789,13 @@ export async function DELETE(req: Request) {
     );
   }
 
-  const headerRow = (values[0] ?? []).map((h) =>
-    normalizeHeader(String(h ?? "")),
-  );
-  const idxId = findColumnIndex(headerRow, ["id"]);
-  if (idxId === -1) {
-    return NextResponse.json(
-      {
-        message: 'Header data tidak sesuai. Kolom "Id" tidak ditemukan.',
-        detectedHeaders: headerRow,
-      },
-      { status: 422 },
-    );
-  }
+  const targetRowIndex = values.findIndex((row) => row[0] === id);
 
-  const rowIndex = values.findIndex(
-    (row, i) => i !== 0 && String(row[idxId] ?? "").trim() === targetId,
-  );
-  if (rowIndex === -1) {
+  // +1 because sheets are 1-indexed, +1 again to skip header row
+  if (targetRowIndex <= 0) {
     return NextResponse.json(
-      { message: `Data dengan id ${targetId} tidak ditemukan.` },
+      { message: `Transaksi dengan ID ${id} tidak ditemukan atau header.` },
       { status: 404 },
-    );
-  }
-
-  let sheetNumericId: number | null = null;
-  try {
-    const meta = await sheets.spreadsheets.get({ spreadsheetId });
-    const found = meta.data.sheets?.find(
-      (s) => s.properties?.title === sheetTitle,
-    );
-    sheetNumericId = found?.properties?.sheetId ?? null;
-  } catch {
-    sheetNumericId = null;
-  }
-
-  if (sheetNumericId === null) {
-    return NextResponse.json(
-      { message: "Gagal mendapatkan sheetId untuk operasi delete." },
-      { status: 502 },
-    );
-  }
-
-  const startIndex = rowIndex;
-  const endIndex = rowIndex + 1;
-
-  if (startIndex <= 0) {
-    return NextResponse.json(
-      { message: "Tidak boleh menghapus header row." },
-      { status: 400 },
     );
   }
 
@@ -829,25 +807,25 @@ export async function DELETE(req: Request) {
           {
             deleteDimension: {
               range: {
-                sheetId: sheetNumericId,
+                sheetId: 0, // Assuming the first sheet
                 dimension: "ROWS",
-                startIndex,
-                endIndex,
+                startIndex: targetRowIndex,
+                endIndex: targetRowIndex + 1,
               },
             },
           },
         ],
       },
     });
-  } catch {
     return NextResponse.json(
-      { message: "Gagal delete data dari Google Sheets." },
-      { status: 502 },
+      { message: `Transaksi dengan ID ${id} berhasil dihapus.` },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error("Error deleting row:", error);
+    return NextResponse.json(
+      { message: "Gagal menghapus transaksi dari Google Sheets." },
+      { status: 500 },
     );
   }
-
-  return NextResponse.json(
-    { message: "Berhasil menghapus transaksi.", id: targetId },
-    { status: 200 },
-  );
 }

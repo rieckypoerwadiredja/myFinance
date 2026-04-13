@@ -1,4 +1,6 @@
-import { ChevronDown, ShieldCheck, Sparkles, Upload as UploadIcon } from "lucide-react";
+import { ShieldCheck, Sparkles, Upload as UploadIcon } from "lucide-react";
+import { Select } from "../elements/Select";
+import { Button } from "../elements/Button";
 
 export default function UploadMainArea() {
   return (
@@ -6,21 +8,16 @@ export default function UploadMainArea() {
       <div className="bg-surface-container-lowest p-8 rounded-3xl shadow-editorial border border-outline-variant/15">
         <div className="flex flex-col gap-8">
           <div className="max-w-xs">
-            <label className="block text-sm font-semibold mb-3 text-on-surface-variant uppercase tracking-wider">
-              Select Institution
-            </label>
-            <div className="relative">
-              <select className="w-full appearance-none bg-surface-container-low border-0 px-5 py-4 rounded-xl text-on-surface focus:ring-2 focus:ring-primary font-medium cursor-pointer">
-                <option value="bca">BCA (Bank Central Asia)</option>
-                <option value="mandiri">Bank Mandiri</option>
-                <option value="bni">BNI (Bank Negara Indonesia)</option>
-                <option value="bri">BRI (Bank Rakyat Indonesia)</option>
-              </select>
-              <ChevronDown
-                className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant"
-                size={20}
-              />
-            </div>
+            <Select
+              label="Select Institution"
+              options={[
+                { value: "bca", label: "BCA (Bank Central Asia)" },
+                { value: "mandiri", label: "Bank Mandiri" },
+                { value: "bni", label: "BNI (Bank Negara Indonesia)" },
+                { value: "bri", label: "BRI (Bank Rakyat Indonesia)" },
+              ]}
+              className="px-5 py-4 text-base rounded-xl border-0"
+            />
           </div>
 
           <div className="relative group">
@@ -34,9 +31,12 @@ export default function UploadMainArea() {
               <p className="text-on-surface-variant mb-6">
                 or click to browse from your computer
               </p>
-              <button className="px-8 py-3 bg-white text-primary font-bold rounded-full border border-primary/20 shadow-sm hover:bg-primary hover:text-white transition-all duration-300">
+              <Button
+                variant="secondary"
+                className="bg-white text-primary border border-primary/20 shadow-sm hover:bg-primary hover:text-white"
+              >
                 Select File
-              </button>
+              </Button>
             </div>
           </div>
 

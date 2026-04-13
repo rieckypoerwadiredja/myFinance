@@ -4,6 +4,9 @@ import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { createTransactions } from "../../lib/transactionClient";
 import IconButton from "../elements/IconButton";
+import { Input } from "../elements/Input";
+import { Button } from "../elements/Button";
+import { Select } from "../elements/Select";
 import { CATEGORY_OPTIONS } from "../../lib/categories";
 
 type DraftRow = {
@@ -13,7 +16,12 @@ type DraftRow = {
   note: string;
 };
 
-const emptyRow: DraftRow = { tanggal: "", kriteria: "", pengeluaran: "", note: "" };
+const emptyRow: DraftRow = {
+  tanggal: "",
+  kriteria: "",
+  pengeluaran: "",
+  note: "",
+};
 
 export default function UploadCreateTransactions() {
   const [rows, setRows] = useState<DraftRow[]>([{ ...emptyRow }]);
@@ -29,7 +37,9 @@ export default function UploadCreateTransactions() {
   }
 
   function updateRow(index: number, next: Partial<DraftRow>) {
-    setRows((r) => r.map((row, i) => (i === index ? { ...row, ...next } : row)));
+    setRows((r) =>
+      r.map((row, i) => (i === index ? { ...row, ...next } : row)),
+    );
   }
 
   async function submit() {
@@ -54,7 +64,9 @@ export default function UploadCreateTransactions() {
       setMessage(`${res.message} (${res.count} data)`);
       setRows([{ ...emptyRow }]);
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Gagal menambahkan transaksi.");
+      setMessage(
+        e instanceof Error ? e.message : "Gagal menambahkan transaksi.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -72,22 +84,17 @@ export default function UploadCreateTransactions() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
+          <Button
             onClick={addRow}
-            className="bg-surface-container-low border border-outline-variant/15 px-5 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2 hover:bg-surface-container-high transition-colors"
-            type="button"
+            variant="secondary"
+            className="border border-outline-variant/15"
           >
-            <Plus size={16} />
+            <Plus size={16} className="mr-2" />
             Add Row
-          </button>
-          <button
-            onClick={submit}
-            disabled={submitting}
-            className="bg-primary text-white px-6 py-2.5 rounded-full text-sm font-bold disabled:opacity-50"
-            type="button"
-          >
+          </Button>
+          <Button onClick={submit} disabled={submitting}>
             {submitting ? "Saving..." : "Save"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -126,37 +133,43 @@ export default function UploadCreateTransactions() {
                   className="hover:bg-surface-container-high transition-colors"
                 >
                   <td className="px-6 py-5">
-                    <input
+                    <Input
                       value={row.tanggal}
-                      onChange={(e) => updateRow(index, { tanggal: e.target.value })}
-                      className="w-full bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-lg text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary"
+                      onChange={(e) =>
+                        updateRow(index, { tanggal: e.target.value })
+                      }
                       type="date"
                     />
                   </td>
                   <td className="px-6 py-5">
-                    <input
+                    <Select
                       value={row.kriteria}
-                      onChange={(e) => updateRow(index, { kriteria: e.target.value })}
-                      className="w-full bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-lg text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary"
-                      placeholder="Kategori"
-                      list="category-options"
+                      onChange={(e) =>
+                        updateRow(index, { kriteria: e.target.value })
+                      }
+                      options={CATEGORY_OPTIONS.map((opt) => ({
+                        label: opt,
+                        value: opt,
+                      }))}
+                      className="w-full bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-lg text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary appearance-none"
                     />
                   </td>
                   <td className="px-6 py-5">
-                    <input
+                    <Input
                       value={row.note}
-                      onChange={(e) => updateRow(index, { note: e.target.value })}
-                      className="w-full bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-lg text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary"
+                      onChange={(e) =>
+                        updateRow(index, { note: e.target.value })
+                      }
                       placeholder="Catatan"
                     />
                   </td>
                   <td className="px-6 py-5">
-                    <input
+                    <Input
                       value={row.pengeluaran}
                       onChange={(e) =>
                         updateRow(index, { pengeluaran: e.target.value })
                       }
-                      className="w-full bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-lg text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary text-right"
+                      className="text-right"
                       placeholder="Rp0"
                     />
                   </td>
@@ -177,12 +190,6 @@ export default function UploadCreateTransactions() {
           </table>
         </div>
       </div>
-
-      <datalist id="category-options">
-        {CATEGORY_OPTIONS.map((opt) => (
-          <option key={opt} value={opt} />
-        ))}
-      </datalist>
     </section>
   );
 }

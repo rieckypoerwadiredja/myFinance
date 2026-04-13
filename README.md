@@ -48,13 +48,19 @@ npm install
 
 Create a `.env` file at the project root (do not commit it). Required variables:
 
-| Variable              | Required | Description                                                                       |
-| --------------------- | -------: | --------------------------------------------------------------------------------- |
-| `GOOGLE_CLIENT_EMAIL` |      Yes | Service Account email (e.g. `...@...iam.gserviceaccount.com`)                     |
-| `GOOGLE_PRIVATE_KEY`  |      Yes | Service Account private key (multi-line key, stored with `\n` in `.env`)          |
-| `GOOGLE_SHEET_ID`     |      Yes | Spreadsheet ID from the Google Sheets URL                                         |
-| `GOOGLE_SHEET_TITLE`  |      Yes | Sheet/tab name (example: `2026`)                                                  |
-| `GOOGLE_SHEET_RANGE`  |       No | Defaults to `${GOOGLE_SHEET_TITLE}!A:E` (Id, Tanggal, Kiteria, Pengeluaran, Note) |
+| Variable               | Required | Description                                                                                                    |
+| ---------------------- | -------: | -------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_CLIENT_EMAIL`  |      Yes | Service Account email (e.g. `...@...iam.gserviceaccount.com`)                                                  |
+| `GOOGLE_PRIVATE_KEY`   |      Yes | Service Account private key (multi-line key, stored with `\n` in `.env`)                                       |
+| `GOOGLE_SHEET_ID`      |      Yes | Spreadsheet ID from the Google Sheets URL                                                                      |
+| `GOOGLE_SHEET_TITLE`   |      Yes | Sheet/tab name (example: `2026`)                                                                               |
+| `GOOGLE_SHEET_RANGE`   |       No | Defaults to `${GOOGLE_SHEET_TITLE}!A:E` (Id, Tanggal, Kiteria, Pengeluaran, Note)                              |
+| `AUTH_SECRET`          |      Yes | A random string used to sign and encrypt the session cookie. Generate with `openssl rand -base64 32`           |
+| `AUTHORIZED_EMAILS`    |      Yes | Comma-separated list of emails allowed to access the application (e.g., `user1@example.com,user2@example.com`) |
+| `GOOGLE_CLIENT_ID`     |       No | Client ID for Google OAuth (if enabled)                                                                        |
+| `GOOGLE_CLIENT_SECRET` |       No | Client Secret for Google OAuth (if enabled)                                                                    |
+| `GITHUB_CLIENT_ID`     |       No | Client ID for GitHub OAuth (if enabled)                                                                        |
+| `GITHUB_CLIENT_SECRET` |       No | Client Secret for GitHub OAuth (if enabled)                                                                    |
 
 Example `.env` (values are placeholders):
 
@@ -64,6 +70,12 @@ GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\
 GOOGLE_SHEET_ID="your_sheet_id_here"
 GOOGLE_SHEET_TITLE="2026"
 GOOGLE_SHEET_RANGE="2026!A:E"
+AUTH_SECRET="your_nextauth_secret_here"
+AUTHORIZED_EMAILS="user1@example.com,user2@example.com"
+GOOGLE_CLIENT_ID="your_google_client_id"
+GOOGLE_CLIENT_SECRET="your_google_client_secret"
+GITHUB_CLIENT_ID="your_github_client_id"
+GITHUB_CLIENT_SECRET="your_github_client_secret"
 ```
 
 ### 3) Run
@@ -73,6 +85,56 @@ npm run dev
 ```
 
 Open http://localhost:3000
+
+### Authentication
+
+This application uses [NextAuth.js](https://next-auth.js.org/) for authentication. Access to both frontend pages and API routes is restricted to a predefined list of authorized email addresses.
+
+- **Google OAuth:** Users sign in with their Google account. Their email must be in `AUTHORIZED_EMAILS`.
+- **GitHub OAuth:** Users sign in with their GitHub account. Their email must be in `AUTHORIZED_EMAILS`.
+- **Route Protection:**
+  - **Frontend:** Middleware (`proxy.ts`) protects all routes except `/auth/signin` and static assets. Unauthenticated users are redirected to the sign-in page.
+  - **API Routes:** Each API endpoint (`/api/transaction`) checks for an active and authorized session. Requests from unauthenticated or unauthorized users will receive a `401 Unauthorized` response.
+- **Sign-in Page:** A custom sign-in page is located at `/auth/signin`.
+- **Sign-out:** A sign-out button is available in the `TopBar` component.
+
+### Google Cloud Console Setup (OAuth)
+
+If you wish to enable Google OAuth, you need to configure a Google Cloud Project:
+
+1.  **Create a Google Cloud Project:**
+    - Go to Google Cloud Console: `https://console.cloud.google.com/`
+    - Create a new project (or select an existing one).
+2.  **Enable Google People API:**
+    - In the Google Cloud Console, navigate to "APIs & Services" > "Library".
+    - Search for and enable "Google People API".
+3.  **Configure OAuth Consent Screen:**
+    - In "APIs & Services" > "OAuth consent screen".
+    - Choose "External" for User Type and fill in the required app information.
+    - Add your authorized email addresses as "Test users".
+4.  **Create OAuth Client ID:**
+    - In "APIs & Services" > "Credentials".
+    - Click "CREATE CREDENTIALS" > "OAuth client ID".
+    - Application type: "Web application".
+    - Add `http://localhost:3000` and your deployment URL (e.g., `https://your-app.vercel.app`) to "Authorized JavaScript origins".
+    - Add `http://localhost:3000/api/auth/callback/google` and your deployment callback URL (e.g., `https://your-app.vercel.app/api/auth/callback/google`) to "Authorized redirect URIs".
+    - Copy the `Client ID` and `Client Secret` and add them to your `.env` file as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+### GitHub OAuth Setup
+
+If you wish to enable GitHub OAuth, you need to configure a GitHub OAuth App:
+
+1.  **Register a new OAuth App:**
+    - Go to GitHub Developer Settings: `https://github.com/settings/developers`
+    - Navigate to "OAuth Apps" > "New OAuth App".
+2.  **Fill in Application Details:**
+    - **Application name:** A descriptive name for your app.
+    - **Homepage URL:** `http://localhost:3000` (and your deployment URL).
+    - **Authorization callback URL:** `http://localhost:3000/api/auth/callback/github` (and your deployment callback URL).
+3.  **Generate Client Secret:**
+    - After registering, you will get a `Client ID`.
+    - Click "Generate a new client secret" to get the `Client Secret`.
+    - Copy the `Client ID` and `Client Secret` and add them to your `.env` file as `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`.
 
 ## Google Cloud Console Setup (Service Account)
 

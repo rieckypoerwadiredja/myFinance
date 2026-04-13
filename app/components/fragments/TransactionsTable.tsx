@@ -16,6 +16,9 @@ import {
   CATEGORY_OPTIONS,
   getCategoryBadgeClassName as getCategoryBadgeClassNameFromConfig,
 } from "../../lib/categories";
+import { Input } from "../elements/Input";
+import { Select } from "../elements/Select";
+import { Button } from "../elements/Button";
 
 type Props = {
   rows: SheetTransaction[];
@@ -145,13 +148,12 @@ export default function TransactionsTable({
 
                   <td className="px-6 py-5">
                     {isEditing ? (
-                      <input
+                      <Input
                         type="date"
                         value={draft.tanggal}
                         onChange={(e) =>
                           onDraftChange({ tanggal: e.target.value })
                         }
-                        className="w-full bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-lg text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary"
                       />
                     ) : (
                       <span className="text-sm text-on-surface">
@@ -162,19 +164,17 @@ export default function TransactionsTable({
 
                   <td className="px-6 py-5">
                     {isEditing ? (
-                      <select
+                      <Select
                         value={draft.kriteria}
                         onChange={(e) =>
                           onDraftChange({ kriteria: e.target.value })
                         }
-                        className="w-full bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-lg text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary"
-                      >
-                        {CATEGORY_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
+                        options={CATEGORY_OPTIONS.map((opt) => ({
+                          label: opt,
+                          value: opt,
+                        }))}
+                        className="w-full bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-lg text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary appearance-none"
+                      />
                     ) : (
                       <span className={getCategoryBadgeClassName(row.kriteria)}>
                         {row.kriteria}
@@ -184,10 +184,11 @@ export default function TransactionsTable({
 
                   <td className="px-6 py-5">
                     {isEditing ? (
-                      <input
+                      <Input
                         value={draft.note}
-                        onChange={(e) => onDraftChange({ note: e.target.value })}
-                        className="w-full bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-lg text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary"
+                        onChange={(e) =>
+                          onDraftChange({ note: e.target.value })
+                        }
                       />
                     ) : (
                       <span className="text-sm text-on-surface">
@@ -198,14 +199,14 @@ export default function TransactionsTable({
 
                   <td className="px-6 py-5 text-sm font-bold text-right text-on-surface">
                     {isEditing ? (
-                      <input
+                      <Input
                         type="number"
                         inputMode="numeric"
                         value={draft.pengeluaran}
                         onChange={(e) =>
                           onDraftChange({ pengeluaran: e.target.value })
                         }
-                        className="w-full bg-surface-container-low border border-outline-variant/15 px-3 py-2 rounded-lg text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary text-right"
+                        className="text-right"
                       />
                     ) : (
                       formatRupiah(amount)

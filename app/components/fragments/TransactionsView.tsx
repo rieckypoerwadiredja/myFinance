@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Calendar, Filter } from "lucide-react";
 import {
   SheetTransaction,
   TransactionsSummary as TransactionsSummaryType,
@@ -12,11 +13,12 @@ import {
   updateTransaction,
 } from "../../lib/transactionClient";
 import TransactionsFooterBrand from "./TransactionsFooterBrand";
-import TransactionsHeader from "./TransactionsHeader";
 import TransactionsSummary from "./TransactionsSummary";
 import TransactionsTable from "./TransactionsTable";
 import { formatRupiah } from "../../lib/rupiah";
 import { CATEGORY_OPTIONS } from "../../lib/categories";
+import PageHeader from "../elements/PageHeader";
+import { Button } from "../elements/Button";
 
 const LIMIT = 100;
 
@@ -202,19 +204,35 @@ export default function TransactionsView() {
 
   const trend = (summary.trend ?? "flat") as TransactionTrend;
   return (
-    <div className="space-y-12">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both">
       <div className="space-y-4">
-        <TransactionsHeader
-          isCategoryOpen={isCategoryOpen}
-          isDateOpen={isDateOpen}
-          onToggleCategory={() => {
-            setIsCategoryOpen((v) => !v);
-            setIsDateOpen(false);
-          }}
-          onToggleDate={() => {
-            setIsDateOpen((v) => !v);
-            setIsCategoryOpen(false);
-          }}
+        <PageHeader
+          title="Ledger Details"
+          description="A curated view of your validated financial activities. Each entry reflects a verified movement of value across your digital assets."
+          actions={
+            <>
+              <Button
+                variant={isCategoryOpen ? "secondary" : "outline"}
+                onClick={() => {
+                  setIsCategoryOpen((v) => !v);
+                  setIsDateOpen(false);
+                }}
+              >
+                <Filter size={16} className="mr-2" />
+                Filter
+              </Button>
+              <Button
+                variant={isDateOpen ? "secondary" : "outline"}
+                onClick={() => {
+                  setIsDateOpen((v) => !v);
+                  setIsCategoryOpen(false);
+                }}
+              >
+                <Calendar size={16} className="mr-2" />
+                Date Range
+              </Button>
+            </>
+          }
         />
 
         {(isCategoryOpen || isDateOpen) && (
